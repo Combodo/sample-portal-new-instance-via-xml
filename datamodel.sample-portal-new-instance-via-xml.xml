@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<itop_design xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.4">
+	<portals>
+		<portal id="sample-portal-new-instance-via-xml" _delta="define">
+			<url>pages/exec.php?exec_module=itop-portal-base&amp;exec_page=index.php&amp;portal_id=sample-portal-new-instance-via-xml</url>
+			<rank>3.0</rank>
+			<handler />
+			<allow>
+			</allow>
+			<deny />
+		</portal>
+	</portals>
+	<module_designs>
+		<module_design id="sample-portal-new-instance-via-xml" _delta="define">
+			<properties>
+				<name>Portal via XML</name>
+			</properties>
+			<bricks>
+				<brick id="contacts" xsi:type="Combodo\iTop\Portal\Brick\BrowseBrick">
+					<active>true</active>
+					<width>12</width>
+					<rank>
+						<default>10</default>
+					</rank>
+					<title>
+						<default>Contacts</default>
+					</title>
+					<description>Browse through contacts directory</description>
+					<decoration_class>
+						<default>fa fa-user-circle-o fa-2x</default>
+					</decoration_class>
+					<levels>
+						<level id="1">
+							<class>Organization</class>
+							<title>Class:Organization</title>
+							<parent_att/>
+							<actions>
+								<action id="drilldown" xsi:type="drilldown"/>
+							</actions>
+							<levels>
+								<level id="1">
+									<class>Person</class>
+									<title>Class:Person</title>
+									<parent_att>org_id</parent_att>
+									<fields>
+										<field id="first_name" />
+										<field id="function" />
+									</fields>
+									<actions>
+										<action id="view" xsi:type="view"/>
+									</actions>
+									<levels/>
+								</level>
+							</levels>
+						</level>
+					</levels>
+					<browse_modes>
+						<availables>
+							<mode id="list"/>
+							<mode id="tree"/>
+							<mode id="mosaic"/>
+						</availables>
+						<default>list</default>
+					</browse_modes>
+					<data_loading>full</data_loading>
+				</brick>
+			</bricks>
+			<classes>
+				<class id="Organization">
+					<scopes>
+						<scope id="all">
+							<oql_view><![CDATA[SELECT Organization]]></oql_view>
+							<ignore_silos>true</ignore_silos>
+						</scope>
+					</scopes>
+				</class>
+				<class id="Contact">
+					<scopes>
+						<scope id="all">
+							<oql_view><![CDATA[SELECT Contact]]></oql_view>
+							<ignore_silos>true</ignore_silos>
+						</scope>
+					</scopes>
+				</class>
+			</classes>
+		</module_design>
+	</module_designs>
+	<snippets>
+		<snippet id="XMLPortalUrlMaker" _delta="define">
+			<placement>module</placement>
+			<module>itop-portal-base</module>
+			<content>
+				<![CDATA[
+/**
+ * main.sample-portal-new-instance-via-xml.php
+ *
+ * @author Guillaume Lajarige <guillaume.lajarige@combodo.com>
+ */
+class XMLPortalEditUrlMaker implements iDBObjectURLMaker
+{
+	/**
+	 * Generate an (absolute) URL to an object, either in view or edit mode
+	 * @param string $sClass The class of the object
+	 * @param int $iId The identifier of the object
+	 * @param string $sMode edit|view
+	 * @return string
+	 */
+	public static function PrepareObjectURL($sClass, $iId, $sMode)
+	{
+		require_once APPROOT . '/lib/silex/vendor/autoload.php';
+		require_once APPROOT . '/env-' . utils::GetCurrentEnvironment() . '/itop-portal-base/portal/src/providers/urlgeneratorserviceprovider.class.inc.php';
+		require_once APPROOT . '/env-' . utils::GetCurrentEnvironment() . '/itop-portal-base/portal/src/helpers/urlgeneratorhelper.class.inc.php';
+		require_once APPROOT . '/env-' . utils::GetCurrentEnvironment() . '/itop-portal-base/portal/src/helpers/applicationhelper.class.inc.php';
+
+		// Using a static var allows to preserve the object through function calls
+		static $oApp = null;
+		static $sPortalId = null;
+
+		// Initializing Silex app
+		if ($oApp === null)
+		{
+			// Initializing Silex framework
+			$oApp = new Silex\Application();
+			// Registering optional silex components
+			$oApp->register(new Combodo\iTop\Portal\Provider\UrlGeneratorServiceProvider());
+			// Registering routes
+			Combodo\iTop\Portal\Helper\ApplicationHelper::LoadRouters();
+			Combodo\iTop\Portal\Helper\ApplicationHelper::RegisterRoutes($oApp);
+			// Retrieving portal id
+			$sPortalId = basename(__DIR__);
+		}
+		// The object is reachable in the specified mode (edit/view)
+		switch($sMode)
+		{
+			case 'view':
+			$sObjectQueryString = $oApp['url_generator']->generate('p_object_view', array('sObjectClass' => $sClass, 'sObjectId' => $iId));
+			break;
+
+			case 'edit':
+			default:
+			$sObjectQueryString = $oApp['url_generator']->generate('p_object_edit', array('sObjectClass' => $sClass, 'sObjectId' => $iId));
+		}
+
+		$sPortalAbsoluteUrl = utils::GetAbsoluteUrlModulePage($sPortalId, 'index.php');
+        if (strpos($sPortalAbsoluteUrl, '?') !== false)
+		{
+            if(strpos($sObjectQueryString, '?') !== false)
+            {
+                $sObjectQueryString = substr($sObjectQueryString, 0, strpos($sObjectQueryString, '?'));
+            }
+            $sUrl = substr($sPortalAbsoluteUrl, 0, strpos($sPortalAbsoluteUrl, '?')).$sObjectQueryString.substr($sPortalAbsoluteUrl, strpos($sPortalAbsoluteUrl, '?'));
+		}
+		else
+		{
+            $sUrl = $sPortalAbsoluteUrl.$sObjectQueryString;
+		}
+
+		return $sUrl;
+	}
+
+	public static function MakeObjectURL($sClass, $iId)
+	{
+		return static::PrepareObjectURL($sClass, $iId, 'edit');
+	}
+}
+
+/**
+ * Hyperlinks to the "view" of the object (vs edition)
+ * @author denis
+ *
+ */
+class XMLPortalViewUrlMaker extends XMLPortalEditUrlMaker
+{
+	public static function MakeObjectURL($sClass, $iId)
+	{
+		return static::PrepareObjectURL($sClass, $iId, 'view');
+	}
+
+}
+
+// XML portal hyperlink (for notifications) is the edit hyperlink
+DBObject::RegisterURLMakerClass('sample-portal-new-instance-via-xml', 'XMLPortalEditUrlMaker');
+				]]>
+			</content>
+		</snippet>
+	</snippets>
+</itop_design>
