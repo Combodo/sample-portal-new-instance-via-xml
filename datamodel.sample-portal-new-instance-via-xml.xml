@@ -127,7 +127,7 @@ class XMLPortalEditUrlMaker implements iDBObjectURLMaker
 			Combodo\iTop\Portal\Helper\ApplicationHelper::LoadRouters();
 			Combodo\iTop\Portal\Helper\ApplicationHelper::RegisterRoutes($oApp);
 			// Retrieving portal id
-			$sPortalId = basename(__DIR__);
+			$sPortalId = 'sample-portal-new-instance-via-xml';
 		}
 		// The object is reachable in the specified mode (edit/view)
 		switch($sMode)
